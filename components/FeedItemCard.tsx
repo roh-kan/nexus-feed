@@ -20,18 +20,7 @@ const FeedItemCard: React.FC<FeedItemCardProps> = ({ item, onToggleRead }) => {
   });
 
   const handleSummarize = async () => {
-    // Check if key exists
-    if (window.aistudio) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        if (confirm("AI summarization requires a Gemini API key. Would you like to set one up now?")) {
-          await window.aistudio.openSelectKey();
-          return;
-        }
-        return;
-      }
-    }
-
+    // API Key management is handled externally for basic text models
     setIsSummarizing(true);
     try {
       const result = await summarizeContent(item.title, item.description || "");
