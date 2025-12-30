@@ -1,5 +1,5 @@
 
-import { AppState, Source } from '../types';
+import { AppState, Source } from '../types.ts';
 
 const SHEET_NAME = 'NexusFeed_Data';
 
@@ -52,7 +52,7 @@ export async function saveAppStateToSheet(token: string, sheetId: string, state:
     body: JSON.stringify({ values: sourceValues })
   });
 
-  // Save Read Status (Simplified: Store as one big chunk or rows)
+  // Save Read Status
   const readValues = state.readItemIds.map(id => [id]);
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/ReadHistory!A1:A${readValues.length}?valueInputOption=RAW`, {
     method: 'PUT',

@@ -1,5 +1,5 @@
 
-import { Source, FeedItem } from '../types';
+import { Source, FeedItem } from '../types.ts';
 
 const PROXY_URL = 'https://api.rss2json.com/v1/api.json?rss_url=';
 

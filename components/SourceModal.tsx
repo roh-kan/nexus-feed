@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Source, SourceType } from '../types';
-import Input from './Input';
-import Button from './Button';
-import { extractYoutubeChannelId } from '../services/feedService';
+import { Source, SourceType } from '../types.ts';
+import Input from './Input.tsx';
+import Button from './Button.tsx';
+import { extractYoutubeChannelId } from '../services/feedService.ts';
 
 interface SourceModalProps {
   source?: Source | null;

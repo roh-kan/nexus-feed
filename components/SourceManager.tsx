@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Source } from '../types';
-import Button from './Button';
+import { Source } from '../types.ts';
+import Button from './Button.tsx';
 
 interface SourceManagerProps {
   sources: Source[];

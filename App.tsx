@@ -1,22 +1,19 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Source, FeedItem, AppState, User } from './types';
-import { fetchFeedItems } from './services/feedService';
-import { findOrCreateSheet, loadAppStateFromSheet, saveAppStateToSheet } from './services/googleSheetsService';
-import SourceManager from './components/SourceManager';
-import FeedItemCard from './components/FeedItemCard';
-import SourceModal from './components/SourceModal';
-import Button from './components/Button';
+import { Source, FeedItem, AppState, User } from './types.ts';
+import { fetchFeedItems } from './services/feedService.ts';
+import { findOrCreateSheet, loadAppStateFromSheet, saveAppStateToSheet } from './services/googleSheetsService.ts';
+import SourceManager from './components/SourceManager.tsx';
+import FeedItemCard from './components/FeedItemCard.tsx';
+import SourceModal from './components/SourceModal.tsx';
+import Button from './components/Button.tsx';
 
 // TODO: Replace this with your actual Client ID from Google Cloud Console
-// Instructions: https://console.cloud.google.com/ -> APIs & Services -> Credentials
 const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 
-// window.aistudio and its associated types are assumed to be pre-configured and globally available in this environment.
-// We only need to extend the Window interface to include window.google for Google Identity Services.
 declare global {
   interface Window {
     google: any;
+    // Removed redundant aistudio declaration to avoid conflict with platform-provided AIStudio type
   }
 }
 
@@ -40,15 +37,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkKey = async () => {
       try {
-        // @ts-ignore - window.aistudio is pre-configured in the execution context
         if (window.aistudio) {
-          // @ts-ignore
           const selected = await window.aistudio.hasSelectedApiKey();
           setHasGeminiKey(selected);
         }
       } catch (e) {
-        console.error("Key check failed", e);
+        console.warn("Key check failed or not available", e);
       } finally {
+        // Ensure we always stop the loading state
         setIsInitializing(false);
       }
     };
@@ -57,15 +53,21 @@ const App: React.FC = () => {
 
   const handleSelectApiKey = async () => {
     try {
-      // @ts-ignore - window.aistudio is pre-configured in the execution context
-      await window.aistudio.openSelectKey();
-      setHasGeminiKey(true);
+      if (window.aistudio) {
+        await window.aistudio.openSelectKey();
+        setHasGeminiKey(true);
+      }
     } catch (e) {
       console.error("Failed to open key selector", e);
     }
   };
 
   const login = () => {
+    if (!window.google) {
+      alert("Google Identity Services not loaded. Please check your internet connection.");
+      return;
+    }
+
     if (GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE_CLIENT_ID')) {
       alert("Please configure your Google Client ID in App.tsx to enable sync.");
       return;
@@ -88,7 +90,7 @@ const App: React.FC = () => {
             }));
           } catch (e) {
             console.error("Login/Sheet initialization failed", e);
-            alert("Sync failed. Ensure you have enabled the Sheets and Drive APIs in your Google Cloud Console.");
+            alert("Sync failed. Ensure you have enabled the Sheets and Drive APIs.");
           } finally {
             setIsInitializing(false);
           }
@@ -202,12 +204,10 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <div className="glass w-full max-w-4xl p-8 sm:p-12 rounded-[2.5rem] space-y-12 shadow-2xl relative overflow-hidden">
-          {/* Subtle Background Glows */}
           <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
           <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none"></div>
 
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Branding Section */}
             <div className="space-y-8 text-center lg:text-left">
               <div className="space-y-6">
                 <div className="w-20 h-20 mx-auto lg:mx-0 rounded-3xl bg-blue-600 flex items-center justify-center shadow-2xl shadow-blue-900/50">
@@ -242,7 +242,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Features List Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 mb-4">
@@ -251,7 +250,6 @@ const App: React.FC = () => {
                 <h3 className="text-white font-bold mb-1">Unified Feeds</h3>
                 <p className="text-sm text-slate-400">Combine RSS and YouTube into a single, beautiful timeline.</p>
               </div>
-
               <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-4">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -259,7 +257,6 @@ const App: React.FC = () => {
                 <h3 className="text-white font-bold mb-1">AI Summaries</h3>
                 <p className="text-sm text-slate-400">Get instant AI-generated tl;dr summaries of any article or video.</p>
               </div>
-
               <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 mb-4">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3zM9 12h6M9 16h6M9 8h6" /></svg>
@@ -267,7 +264,6 @@ const App: React.FC = () => {
                 <h3 className="text-white font-bold mb-1">Sheet Sync</h3>
                 <p className="text-sm text-slate-400">Your data belongs to you. All settings are saved in your Google Drive.</p>
               </div>
-
               <div className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 mb-4">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { FeedItem } from '../types';
-import { summarizeContent } from '../services/geminiService';
-import Button from './Button';
+import { FeedItem } from '../types.ts';
+import { summarizeContent } from '../services/geminiService.ts';
+import Button from './Button.tsx';
 
 interface FeedItemCardProps {
   item: FeedItem;
@@ -21,13 +21,15 @@ const FeedItemCard: React.FC<FeedItemCardProps> = ({ item, onToggleRead }) => {
 
   const handleSummarize = async () => {
     // Check if key exists
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      if (confirm("AI summarization requires a Gemini API key. Would you like to set one up now?")) {
-        await window.aistudio.openSelectKey();
+    if (window.aistudio) {
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        if (confirm("AI summarization requires a Gemini API key. Would you like to set one up now?")) {
+          await window.aistudio.openSelectKey();
+          return;
+        }
         return;
       }
-      return;
     }
 
     setIsSummarizing(true);
