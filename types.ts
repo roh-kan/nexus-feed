@@ -28,6 +28,7 @@ export interface FeedItem {
   thumbnail?: string;
   description?: string;
   isRead: boolean;
+  isStarred?: boolean;
 }
 
 export interface AppState {
@@ -35,7 +36,8 @@ export interface AppState {
   sources: Source[];
   items: FeedItem[];
   readItemIds: string[]; // Track IDs persistently for Sheets
+  deletedItemIds?: string[];
   selectedTags: string[];
-  filterReadStatus: 'all' | 'unread' | 'read';
+  filterReadStatus: 'all' | 'unread' | 'read' | 'starred';
   isCloudSyncing: boolean;
 }

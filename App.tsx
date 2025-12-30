@@ -18,6 +18,7 @@ const GOOGLE_CLIENT_ID =
 declare global {
   interface Window {
     google: any;
+    aistudio?: any;
   }
 }
 
@@ -37,6 +38,7 @@ const App: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 
   useEffect(() => {
     setIsInitializing(false);
@@ -94,6 +96,44 @@ const App: React.FC = () => {
       }
     });
     client.requestAccessToken();
+  };
+
+  const setupAI = async () => {
+    try {
+      if (typeof window === 'undefined') return;
+      // If host provides aistudio, prefer it
+      if (window.aistudio && typeof window.aistudio.selectKey === 'function') {
+        try {
+          await window.aistudio.selectKey();
+          const selected =
+            (typeof window.aistudio.getSelectedKey === 'function'
+              ? await window.aistudio.getSelectedKey()
+              : window.aistudio.selectedKey) || undefined;
+          if (selected) {
+            // store locally so geminiService can pick it up even if aistudio isn't present later
+            localStorage.setItem('nexus_feed_api_key', selected);
+            alert('AI key selected and saved locally.');
+            return;
+          }
+        } catch (e) {
+          console.warn('aistudio selection failed', e);
+        }
+      }
+
+      // Fallback: ask user to paste their API key and store in localStorage
+      const inputKey = window.prompt(
+        'Paste your Gemini API key (will be stored locally)'
+      );
+      if (inputKey && inputKey.trim()) {
+        localStorage.setItem('nexus_feed_api_key', inputKey.trim());
+        alert('API key saved to localStorage.');
+      } else {
+        alert('No API key provided.');
+      }
+    } catch (e) {
+      console.error('AI setup failed', e);
+      alert('AI setup failed. See console for details.');
+    }
   };
 
   useEffect(() => {
@@ -474,6 +514,29 @@ const App: React.FC = () => {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <Button size="sm" variant="secondary" onClick={setupAI}>
+              Setup AI
+            </Button>
+            {/* Mobile: toggle sources/filters panel */}
+            <button
+              onClick={() => setMobilePanelOpen(true)}
+              className="lg:hidden inline-flex items-center justify-center px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"
+              aria-label="Open sources"
+            >
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
             <Button
               size="sm"
               variant="secondary"
