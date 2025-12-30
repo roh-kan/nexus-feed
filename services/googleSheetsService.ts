@@ -3,13 +3,21 @@ import { AppState, Source } from '../types.ts';
 
 const SHEET_NAME = 'NexusFeed_Data';
 
+async function handleResponse(res: Response) {
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Google API Error: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function findOrCreateSheet(token: string): Promise<string> {
   // 1. Search for existing sheet
   const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
   const searchRes = await fetch(searchUrl, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  const searchData = await searchRes.json();
+  const searchData = await handleResponse(searchRes);
 
   if (searchData.files && searchData.files.length > 0) {
     return searchData.files[0].id;
@@ -31,14 +39,15 @@ export async function findOrCreateSheet(token: string): Promise<string> {
       ]
     })
   });
-  const newData = await createRes.json();
-  
+  const newData = await handleResponse(createRes);
+
   // Initialize headers
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${newData.spreadsheetId}/values/Sources!A1:E1?valueInputOption=RAW`, {
+  const headerRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${newData.spreadsheetId}/values/Sources!A1:E1?valueInputOption=RAW`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [['id', 'name', 'url', 'type', 'tags']] })
   });
+  await handleResponse(headerRes);
 
   return newData.spreadsheetId;
 }
@@ -46,19 +55,25 @@ export async function findOrCreateSheet(token: string): Promise<string> {
 export async function saveAppStateToSheet(token: string, sheetId: string, state: AppState) {
   // Save Sources
   const sourceValues = state.sources.map(s => [s.id, s.name, s.url, s.type, s.tags.join(',')]);
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Sources!A2:E${sourceValues.length + 1}?valueInputOption=RAW`, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: sourceValues })
-  });
+  if (sourceValues.length > 0) {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Sources!A2:E${sourceValues.length + 1}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: sourceValues })
+    });
+    await handleResponse(res);
+  }
 
   // Save Read Status
   const readValues = state.readItemIds.map(id => [id]);
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/ReadHistory!A1:A${readValues.length}?valueInputOption=RAW`, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: readValues })
-  });
+  if (readValues.length > 0) {
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/ReadHistory!A1:A${readValues.length}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: readValues })
+    });
+    await handleResponse(res);
+  }
 }
 
 export async function loadAppStateFromSheet(token: string, sheetId: string): Promise<{ sources: Source[], readItemIds: string[] }> {
@@ -66,10 +81,10 @@ export async function loadAppStateFromSheet(token: string, sheetId: string): Pro
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  const data = await res.json();
+  const data = await handleResponse(res);
 
-  const sourcesRows = data.valueRanges[0].values || [];
-  const readRows = data.valueRanges[1].values || [];
+  const sourcesRows = data.valueRanges?.[0]?.values || [];
+  const readRows = data.valueRanges?.[1]?.values || [];
 
   const sources: Source[] = sourcesRows.map((row: any) => ({
     id: row[0],
