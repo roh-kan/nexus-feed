@@ -39,6 +39,8 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [starredItemIds, setStarredItemIds] = useState<string[]>([]);
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 
   useEffect(() => {
     setIsInitializing(false);
@@ -64,6 +66,7 @@ const App: React.FC = () => {
       client_id: GOOGLE_CLIENT_ID,
       scope:
         'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+      ux_mode: 'popup',
       callback: async (tokenResponse: any) => {
         if (tokenResponse.access_token) {
           setIsInitializing(true);
@@ -182,10 +185,13 @@ const App: React.FC = () => {
       );
 
       setState((prev) => {
-        const mergedItems = allNewItems.map((item) => ({
-          ...item,
-          isRead: prev.readItemIds.includes(item.id)
-        }));
+        const mergedItems = allNewItems
+          .filter((item) => !deletedItemIds.includes(item.id))
+          .map((item) => ({
+            ...item,
+            isRead: prev.readItemIds.includes(item.id),
+            isStarred: starredItemIds.includes(item.id)
+          }));
         const uniqueItems = Array.from(
           new Map(mergedItems.map((item) => [item.id, item])).values()
         );
@@ -194,7 +200,7 @@ const App: React.FC = () => {
     } finally {
       setRefreshing(false);
     }
-  }, [state.sources, state.readItemIds]);
+  }, [state.sources, state.readItemIds, starredItemIds, deletedItemIds]);
 
   useEffect(() => {
     if (state.sources.length > 0 && state.items.length === 0) {
@@ -208,7 +214,7 @@ const App: React.FC = () => {
     let updatedSources = [...state.sources];
     if (editingSource) {
       updatedSources = updatedSources.map((s) =>
-        s.id === editingSource.id ? { ...editingSource, ...sourceData } : s
+        s.id === editingSource.id ? { ...s, ...sourceData } : s
       );
     } else {
       updatedSources.push({
@@ -218,7 +224,6 @@ const App: React.FC = () => {
       });
     }
     setState((prev) => ({ ...prev, sources: updatedSources }));
-    setTimeout(() => refreshFeeds(), 100);
   };
 
   const handleToggleRead = (id: string) => {
@@ -237,6 +242,29 @@ const App: React.FC = () => {
     });
   };
 
+  const handleToggleStar = (id: string) => {
+    const isStarred = starredItemIds.includes(id);
+    const newStarred = isStarred
+      ? starredItemIds.filter((sid) => sid !== id)
+      : [...starredItemIds, id];
+    setStarredItemIds(newStarred);
+    setState((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === id ? { ...item, isStarred: !isStarred } : item
+      )
+    }));
+  };
+
+  const handleDeleteItem = (id: string) => {
+    const newDeleted = [...deletedItemIds, id];
+    setDeletedItemIds(newDeleted);
+    setState((prev) => ({
+      ...prev,
+      items: prev.items.filter((item) => item.id !== id)
+    }));
+  };
+
   const filteredItems = useMemo(() => {
     return state.items
       .filter((item) => {
@@ -248,7 +276,8 @@ const App: React.FC = () => {
         const matchesRead =
           state.filterReadStatus === 'all' ||
           (state.filterReadStatus === 'read' && item.isRead) ||
-          (state.filterReadStatus === 'unread' && !item.isRead);
+          (state.filterReadStatus === 'unread' && !item.isRead) ||
+          (state.filterReadStatus === 'starred' && item.isStarred);
         return matchesTags && matchesRead;
       })
       .sort((a, b) => b.pubDate - a.pubDate);
@@ -475,52 +504,17 @@ const App: React.FC = () => {
             setEditingSource(null);
             setIsModalOpen(true);
           }}
+          onSetupAI={setupAI}
         />
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 flex items-center justify-between px-8 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div className="flex bg-slate-800 rounded-lg p-1">
-              <button
-                onClick={() =>
-                  setState((prev) => ({ ...prev, filterReadStatus: 'all' }))
-                }
-                className={`px-3 py-1 text-xs font-semibold rounded-md ${
-                  state.filterReadStatus === 'all'
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-500'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() =>
-                  setState((prev) => ({ ...prev, filterReadStatus: 'unread' }))
-                }
-                className={`px-3 py-1 text-xs font-semibold rounded-md ${
-                  state.filterReadStatus === 'unread'
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-500'
-                }`}
-              >
-                Unread
-              </button>
-            </div>
-            {state.isCloudSyncing && (
-              <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                Syncing...
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button size="sm" variant="secondary" onClick={setupAI}>
-              Setup AI
-            </Button>
+        <header className="h-16 flex items-center justify-between px-4 sm:px-8 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Mobile: toggle sources/filters panel */}
             <button
               onClick={() => setMobilePanelOpen(true)}
-              className="lg:hidden inline-flex items-center justify-center px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-slate-600 transition-colors"
               aria-label="Open sources"
             >
               <svg
@@ -537,6 +531,51 @@ const App: React.FC = () => {
                 />
               </svg>
             </button>
+            <div className="flex bg-slate-800 rounded-lg p-1">
+              <button
+                onClick={() =>
+                  setState((prev) => ({ ...prev, filterReadStatus: 'all' }))
+                }
+                className={`px-2 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  state.filterReadStatus === 'all'
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-500'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() =>
+                  setState((prev) => ({ ...prev, filterReadStatus: 'unread' }))
+                }
+                className={`px-2 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  state.filterReadStatus === 'unread'
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-500'
+                }`}
+              >
+                Unread
+              </button>
+              <button
+                onClick={() =>
+                  setState((prev) => ({ ...prev, filterReadStatus: 'starred' }))
+                }
+                className={`px-2 sm:px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  state.filterReadStatus === 'starred'
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-500'
+                }`}
+              >
+                Starred
+              </button>
+            </div>
+            {state.isCloudSyncing && (
+              <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
+                Syncing...
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               size="sm"
               variant="secondary"
@@ -555,6 +594,8 @@ const App: React.FC = () => {
                 key={item.id}
                 item={item}
                 onToggleRead={handleToggleRead}
+                onToggleStar={handleToggleStar}
+                onDelete={handleDeleteItem}
               />
             ))}
             {filteredItems.length === 0 && (
@@ -566,10 +607,92 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Mobile sidebar */}
+      {mobilePanelOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          onClick={() => setMobilePanelOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+          <div
+            className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 border-r border-slate-800 p-6 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h1 className="text-lg font-bold text-white">Nexus Feed</h1>
+              </div>
+              <button
+                onClick={() => setMobilePanelOpen(false)}
+                className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                aria-label="Close"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <SourceManager
+              sources={state.sources}
+              allTags={Array.from(
+                new Set(state.sources.flatMap((s) => s.tags))
+              ).sort()}
+              selectedTags={state.selectedTags}
+              onToggleTag={(tag) =>
+                setState((prev) => ({
+                  ...prev,
+                  selectedTags: prev.selectedTags.includes(tag)
+                    ? prev.selectedTags.filter((t) => t !== tag)
+                    : [...prev.selectedTags, tag]
+                }))
+              }
+              onEditSource={(s) => {
+                setEditingSource(s);
+                setIsModalOpen(true);
+              }}
+              onDeleteSource={(id) =>
+                setState((prev) => ({
+                  ...prev,
+                  sources: prev.sources.filter((s) => s.id !== id)
+                }))
+              }
+              onAddSource={() => {
+                setEditingSource(null);
+                setIsModalOpen(true);
+              }}
+              onSetupAI={setupAI}
+            />
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <SourceModal
           source={editingSource}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingSource(null);
+          }}
           onSave={handleAddOrEditSource}
         />
       )}

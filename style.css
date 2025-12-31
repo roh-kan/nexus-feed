@@ -48,3 +48,11 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Mobile touch targets */
+@media (max-width: 1023px) {
+    button, a {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}

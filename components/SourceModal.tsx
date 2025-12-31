@@ -3,7 +3,6 @@ import { Source, SourceType } from '../types.ts';
 import Input from './Input.tsx';
 import Button from './Button.tsx';
 import { suggestTags } from '../services/geminiService.ts';
-import { extractYoutubeChannelId } from '../services/feedService.ts';
 
 interface SourceModalProps {
   source?: Source | null;
@@ -38,16 +37,7 @@ const SourceModal: React.FC<SourceModalProps> = ({
     setError('');
 
     try {
-      let finalUrl = url.trim();
-      if (type === 'youtube') {
-        const channelId = extractYoutubeChannelId(finalUrl);
-        if (!channelId) {
-          throw new Error(
-            'Invalid YouTube channel URL. Please use the full channel URL or @username.'
-          );
-        }
-        finalUrl = channelId;
-      }
+      const finalUrl = url.trim();
 
       const tags = tagsInput
         .split(',')
@@ -132,10 +122,10 @@ const SourceModal: React.FC<SourceModalProps> = ({
           </div>
 
           <Input
-            label={type === 'youtube' ? 'YouTube Channel URL' : 'RSS Feed URL'}
+            label={type === 'youtube' ? 'YouTube Feed URL' : 'RSS Feed URL'}
             placeholder={
               type === 'youtube'
-                ? 'https://youtube.com/@channel'
+                ? 'https://www.youtube.com/feeds/videos.xml?channel_id=UCxxxxxx'
                 : 'https://example.com/feed.xml'
             }
             value={url}

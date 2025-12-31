@@ -5,13 +5,12 @@ const PROXY_URL = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
 export async function fetchFeedItems(source: Source): Promise<FeedItem[]> {
   try {
-    const targetUrl = source.type === 'youtube' 
-      ? `https://www.youtube.com/feeds/videos.xml?channel_id=${source.url}`
-      : source.url;
+    // Use the URL directly - YouTube and RSS feed URLs are now provided as-is
+    const targetUrl = source.url;
 
     const response = await fetch(`${PROXY_URL}${encodeURIComponent(targetUrl)}`);
     if (!response.ok) throw new Error('Failed to fetch feed');
-    
+
     const data = await response.json();
     if (data.status !== 'ok') throw new Error(data.message || 'Error parsing feed');
 
