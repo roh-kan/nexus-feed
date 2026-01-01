@@ -42,8 +42,40 @@ const App: React.FC = () => {
   const [starredItemIds, setStarredItemIds] = useState<string[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
 
+  // Restore session from localStorage on app load
   useEffect(() => {
-    setIsInitializing(false);
+    const restoreSession = async () => {
+      try {
+        const savedSession = localStorage.getItem('nexus_feed_session');
+        if (savedSession) {
+          const { accessToken, sheetId } = JSON.parse(savedSession);
+          if (accessToken && sheetId) {
+            try {
+              const { sources, readItemIds } = await loadAppStateFromSheet(
+                accessToken,
+                sheetId
+              );
+              setState((prev) => ({
+                ...prev,
+                user: { accessToken, sheetId },
+                sources,
+                readItemIds
+              }));
+              setIsInitializing(false);
+              return;
+            } catch (error) {
+              console.warn('Failed to restore session from Sheets:', error);
+              localStorage.removeItem('nexus_feed_session');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error restoring session:', error);
+      }
+      setIsInitializing(false);
+    };
+
+    restoreSession();
   }, []);
 
   const login = () => {
@@ -76,6 +108,11 @@ const App: React.FC = () => {
               tokenResponse.access_token,
               sheetId
             );
+            // Save session to localStorage for persistence
+            localStorage.setItem('nexus_feed_session', JSON.stringify({
+              accessToken: tokenResponse.access_token,
+              sheetId
+            }));
             setState((prev) => ({
               ...prev,
               user: { accessToken: tokenResponse.access_token, sheetId },
@@ -99,6 +136,24 @@ const App: React.FC = () => {
       }
     });
     client.requestAccessToken();
+  };
+
+  const handleLogout = () => {
+    // Clear session from localStorage
+    localStorage.removeItem('nexus_feed_session');
+    // Reset app state
+    setState({
+      user: null,
+      sources: [],
+      items: [],
+      readItemIds: [],
+      selectedTags: [],
+      filterReadStatus: 'all',
+      isCloudSyncing: false
+    });
+    setStarredItemIds([]);
+    setDeletedItemIds([]);
+    setLoginError(null);
   };
 
   const setupAI = async () => {
@@ -584,6 +639,26 @@ const App: React.FC = () => {
             >
               Refresh
             </Button>
+            <button
+              onClick={handleLogout}
+              className="hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              <span className="hidden lg:inline">Logout</span>
+            </button>
           </div>
         </header>
 
